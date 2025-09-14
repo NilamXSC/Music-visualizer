@@ -94,8 +94,9 @@ Streamlit (Cloud or Local)
 Compatible with Docker / any Python hosting
 
 🚀 Getting Started
+
 1️⃣ Clone the Repository
-git clone https://github.com/your-username/sonicplay.git
+git clone https://github.com/NilamXSC/Music-visualizer.git
 cd sonicplay
 
 2️⃣ Install Dependencies
