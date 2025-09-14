@@ -155,9 +155,9 @@ streamlit run app.py --server.enableCORS false
 
 👤 Nilam Chakraborty
 
-💼 LinkedIn
+💼 LinkedIn : https://www.linkedin.com/in/chakrabortynilam9
 
-📧 Email: your-email@example.com
+📧 Email:chakrabortynilam88@gmail.com
 
 📜 License
 
