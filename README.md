@@ -96,6 +96,7 @@ Compatible with Docker / any Python hosting
 🚀 Getting Started
 
 1️⃣ Clone the Repository
+
 git clone https://github.com/NilamXSC/Music-visualizer.git
 cd sonicplay
 
