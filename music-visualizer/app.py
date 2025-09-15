@@ -78,9 +78,9 @@ def make_sp_oauth():
     Returns None if secrets not configured.
     """
     try:
-        client_id = st.secrets["spotify"]["SPOTIPY_CLIENT_ID"]
-        client_secret = st.secrets["spotify"]["SPOTIPY_CLIENT_SECRET"]
-        redirect_uri = st.secrets["spotify"]["SPOTIPY_REDIRECT_URI"]
+        client_id = st.secrets["spotify"]["083fa034491a43e28929a294097721c5"]
+        client_secret = st.secrets["spotify"]["fe82667d7d374f13af99dc18fd4b7ea6"]
+        redirect_uri = st.secrets["spotify"]["https://music-visualizer-hxuorbfc6jxffrzaujna37.streamlit.app/"]
     except Exception:
         return None
 
@@ -297,8 +297,8 @@ else:
     try:
         # try client credentials manager if configured
         if st.secrets.get("spotify"):
-            cid = st.secrets["spotify"].get("SPOTIPY_CLIENT_ID")
-            csec = st.secrets["spotify"].get("SPOTIPY_CLIENT_SECRET")
+            cid = st.secrets["spotify"].get("083fa034491a43e28929a294097721c5")
+            csec = st.secrets["spotify"].get("fe82667d7d374f13af99dc18fd4b7ea6")
             if cid and csec:
                 from spotipy.oauth2 import SpotifyClientCredentials
                 cc = SpotifyClientCredentials(client_id=cid, client_secret=csec)
