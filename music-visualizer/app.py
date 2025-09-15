@@ -5,40 +5,34 @@ import base64
 import tempfile
 import os
 from pathlib import Path
-
-# Import visualizer effects
-from effects import ripple, synthwave, ocean_reverb, resonance, mesh, beatsaber
+import spotipy
+from spotipy.oauth2 import SpotifyOAuth
 
 # ------------------------
 # Page config + Logo / Favicon
 # ------------------------
 st.set_page_config(page_title="SonicPlay - Music Visualizer", layout="wide")
 
-# Resolve project static directory relative to this file (robust for deploy)
+# Resolve project static directory relative to this file
 BASE_DIR = os.path.dirname(__file__)
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 
-# ✅ Load logo + favicon as base64 (safe: uses absolute paths)
+# ✅ Load logo + favicon
 def load_base64(filename: str) -> str:
-    """
-    Load a file from the static directory and return a base64 data string.
-    Returns an empty string on failure (so app doesn't crash on missing files).
-    """
     path = os.path.join(STATIC_DIR, filename)
     try:
         with open(path, "rb") as f:
             return base64.b64encode(f.read()).decode()
     except Exception:
-        # Don't raise here because missing static files should not break the app
         return ""
 
 favicon_b64 = load_base64("favicon.ico")
 logo_b64 = load_base64("logo.png")
 
-# ✅ Synthwave video path (absolute)
+# ✅ Synthwave video path
 synthwave_video_path = os.path.join(STATIC_DIR, "synthwave_bg.mp4")
 
-# ✅ Intro animation (only inject favicon if available)
+# ✅ Intro animation
 def show_intro():
     favicon_link = f'<link rel="icon" href="data:image/x-icon;base64,{favicon_b64}">' if favicon_b64 else ""
     logo_img = f'<img src="data:image/png;base64,{logo_b64}" class="transparent-logo" width="180">' if logo_b64 else ""
@@ -48,22 +42,16 @@ def show_intro():
         <style>
         @keyframes logoIntroAnim {{
           0%   {{ left:0; top:50%; transform: translateY(-50%) scale(0.2) rotate(0deg); opacity:0; }}
-          40%  {{ left:50%; top:50%; transform: translate(-50%,-50%) scale(1.0) rotate(180deg); opacity:1; filter: drop-shadow(0 0 25px #ff2d95); }}
-          70%  {{ left:50%; top:50%; transform: translate(-50%,-50%) scale(1.2) rotate(360deg); opacity:1; filter: drop-shadow(0 0 40px #ff9a2d); }}
-          100% {{ left:0; top:50%; transform: translateY(-50%) scale(0.2) rotate(-360deg); opacity:0; }}
+          40%  {{ left:50%; top:50%; transform:translate(-50%,-50%) scale(1.0) rotate(180deg); opacity:1; filter:drop-shadow(0 0 25px #ff2d95); }}
+          70%  {{ left:50%; top:50%; transform:translate(-50%,-50%) scale(1.2) rotate(360deg); opacity:1; filter:drop-shadow(0 0 40px #ff9a2d); }}
+          100% {{ left:0; top:50%; transform:translateY(-50%) scale(0.2) rotate(-360deg); opacity:0; }}
         }}
         #logoIntro {{
-          position:fixed;
-          top:50%;
-          left:0;
+          position:fixed; top:50%; left:0;
           animation: logoIntroAnim 4s ease-in-out forwards;
-          z-index:10000;
-          background: transparent !important;
+          z-index:10000; background:transparent !important;
         }}
-        img.transparent-logo {{
-          background: transparent !important;
-          display:block;
-        }}
+        img.transparent-logo {{ background:transparent !important; display:block; }}
         </style>
         <div id="logoIntro">
           {logo_img}
@@ -75,7 +63,7 @@ def show_intro():
 # Show intro on load
 show_intro()
 
-# ✅ Replace plain title with logo + text (fallback to text if logo missing)
+# ✅ Replace plain title
 logo_img_small = f'<img src="data:image/png;base64,{logo_b64}" width="60" height="60">' if logo_b64 else ""
 st.markdown(
     f"""
@@ -86,6 +74,24 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
+
+# ------------------------
+# Spotify Integration (from secrets)
+# ------------------------
+sp = None
+try:
+    SPOTIPY_CLIENT_ID = st.secrets["spotify"]["SPOTIPY_CLIENT_ID"]
+    SPOTIPY_CLIENT_SECRET = st.secrets["spotify"]["SPOTIPY_CLIENT_SECRET"]
+    SPOTIPY_REDIRECT_URI = st.secrets["spotify"]["SPOTIPY_REDIRECT_URI"]
+
+    sp = spotipy.Spotify(auth_manager=SpotifyOAuth(
+        client_id=SPOTIPY_CLIENT_ID,
+        client_secret=SPOTIPY_CLIENT_SECRET,
+        redirect_uri=SPOTIPY_REDIRECT_URI,
+        scope="user-library-read"
+    ))
+except Exception as e:
+    st.sidebar.warning("⚠ Spotify not configured. Upload local files instead.")
 
 # ------------------------
 # Sidebar - Guest & Upload
@@ -101,24 +107,38 @@ else:
     st.sidebar.info("Click **Continue as Guest** to start.")
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("### Choose audio")
-uploaded = st.sidebar.file_uploader(
-    "Upload an MP3 / WAV file (or choose demo)", type=["mp3", "wav", "m4a", "flac"]
-)
 
-# Offer demo file if user added one to demo_songs folder (resolve relative to BASE_DIR)
+# 🎵 Spotify search
+audio_url_data = None
+uploaded = None
+beats = []
+file_duration = 0.0
+processing_error = None
+
+if sp:
+    st.sidebar.markdown("### 🎧 Search Spotify")
+    query = st.sidebar.text_input("Search for a song")
+    if query:
+        results = sp.search(q=query, limit=5, type='track')
+        for idx, track in enumerate(results['tracks']['items']):
+            track_name = track['name']
+            artist_name = track['artists'][0]['name']
+            preview_url = track['preview_url']
+            st.sidebar.write(f"{track_name} — {artist_name}")
+            if preview_url:
+                if st.sidebar.button(f"▶ Play {track_name}", key=f"play_sp_{idx}"):
+                    audio_url_data = preview_url
+                    st.sidebar.success(f"Loaded {track_name} from Spotify")
+
+st.sidebar.markdown("### Or upload your own")
+uploaded = st.sidebar.file_uploader("Upload MP3/WAV", type=["mp3", "wav", "m4a", "flac"])
+
+# Demo songs
 demo_path = Path(os.path.join(BASE_DIR, "demo_songs"))
-demo_files = []
-if demo_path.exists() and demo_path.is_dir():
-    for p in demo_path.iterdir():
-        if p.suffix.lower() in [".mp3", ".wav", ".m4a", ".flac"]:
-            demo_files.append(str(p))
-
-selected_demo = None
+demo_files = [str(p) for p in demo_path.iterdir() if p.suffix.lower() in [".mp3", ".wav", ".m4a", ".flac"]] if demo_path.exists() else []
 if demo_files:
     selected_demo = st.sidebar.selectbox("Or choose demo song", ["-- none --"] + demo_files)
-    if selected_demo and selected_demo != "-- none --" and not uploaded:
-        # open as binary file-like so downstream code works the same
+    if selected_demo and selected_demo != "-- none --" and not uploaded and not audio_url_data:
         uploaded = open(selected_demo, "rb")
 
 st.sidebar.markdown("---")
@@ -148,29 +168,20 @@ def write_temp_file(uploaded_file):
     return tmp.name
 
 # ------------------------
-# Process audio
+# Process uploaded audio
 # ------------------------
-beats = []
-audio_url_data = None
-processing_error = None
-file_duration = 0.0
-
-if uploaded:
+if uploaded and not audio_url_data:
     try:
         temp_path = write_temp_file(uploaded)
-        # load with librosa
         y, sr = librosa.load(temp_path, sr=None, mono=True)
         file_duration = librosa.get_duration(y=y, sr=sr)
         tempo, beat_frames = librosa.beat.beat_track(y=y, sr=sr, trim=False)
-        beat_times = librosa.frames_to_time(beat_frames, sr=sr)
-        beats = beat_times.tolist()
+        beats = librosa.frames_to_time(beat_frames, sr=sr).tolist()
 
         with open(temp_path, "rb") as f:
             data = f.read()
             b64 = base64.b64encode(data).decode()
-            mime = "audio/mpeg"
-            if Path(temp_path).suffix.lower() == ".wav":
-                mime = "audio/wav"
+            mime = "audio/mpeg" if Path(temp_path).suffix.lower() != ".wav" else "audio/wav"
             audio_url_data = f"data:{mime};base64,{b64}"
 
         st.sidebar.success(f"Detected ~{len(beats)} beats, duration {int(file_duration)}s")
@@ -181,22 +192,21 @@ if uploaded:
 # ------------------------
 # Main UI - Player + Visualizer
 # ------------------------
+from effects import ripple, synthwave, ocean_reverb, resonance, mesh, beatsaber
+
 col1, col2 = st.columns([1, 2])
 
 with col1:
     st.header("Player")
-    if uploaded and audio_url_data:
-        # Import the custom player render function here (keeps import errors local)
+    if audio_url_data:
         try:
-            from custom_player import render_custom_player  # type: ignore
-            # render with optional logo data if available
+            from custom_player import render_custom_player
             render_custom_player(audio_url_data, logo_b64=logo_b64)
         except Exception as e:
             st.error(f"Could not load custom player: {e}")
-            st.write("Fallback basic audio player:")
             st.audio(audio_url_data)
     else:
-        st.info("Upload an audio file (mp3/wav) in the sidebar to enable the player.")
+        st.info("Upload or load a song to enable the player.")
 
     start_clicked = st.button("▶️ Start Visualizer")
     replay_intro = st.button("🔄 Replay Intro")
@@ -205,12 +215,11 @@ with col2:
     st.header("Visualizer")
     if replay_intro:
         show_intro()
-    elif start_clicked and uploaded and audio_url_data:
+    elif start_clicked and audio_url_data:
         if mode == "Ripple":
             html = ripple.render_effect(beats, theme, sensitivity, particle_count, audio_url_data)
             st.components.v1.html(html, height=680, scrolling=False)
         elif mode == "Synthwave":
-            # ensure synthwave video path exists; pass relative fallback if not
             video_path = synthwave_video_path if os.path.exists(synthwave_video_path) else os.path.join("static", "synthwave_bg.mp4")
             html = synthwave.get_html(audio_src=audio_url_data, beats=beats, intensity=intensity, grid_speed=grid_speed, grid_cols=grid_cols, video_path=video_path)
             st.components.v1.html(html, height=700, scrolling=False)
