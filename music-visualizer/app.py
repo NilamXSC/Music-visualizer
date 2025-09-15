@@ -100,15 +100,18 @@ spotify_token_info = st.session_state.get("spotify_token_info", None)
 sp = None
 spotify_user_display = None
 
-# ✅ FIX: use st.query_params (not deprecated experimental)
+# Note: older code used experimental_get/set_query_params — replaced with st.query_params APIs where needed.
 params = st.query_params
 if "code" in params and not spotify_token_info:
-    code = params["code"]
+    # params contains lists for each key; grab first entry
+    code_vals = params.get("code")
+    code = code_vals[0] if isinstance(code_vals, (list, tuple)) and len(code_vals) else code_vals
     try:
         token_info = auth_manager.get_access_token(code)
         spotify_token_info = token_info
         st.session_state["spotify_token_info"] = spotify_token_info
-        st.query_params.clear()  # remove ?code= from URL
+        # clear code from URL
+        st.experimental_set_query_params()  # still the recommended way to clear the URL in current Streamlit builds
     except Exception as e:
         st.sidebar.error(f"Spotify auth failed: {e}")
         spotify_token_info = None
@@ -153,11 +156,14 @@ if not sp:
     st.sidebar.markdown("---")
     st.sidebar.markdown("#### Spotify")
     st.sidebar.write("Sign in with Spotify to browse your library and play previews.")
-    auth_url = auth_manager.get_authorize_url()
-    st.sidebar.markdown(
-        f'<a href="{auth_url}" target="_blank"><button style="padding:8px 12px; border-radius:8px;">Login with Spotify</button></a>',
-        unsafe_allow_html=True,
-    )
+    try:
+        auth_url = auth_manager.get_authorize_url()
+        st.sidebar.markdown(
+            f'<a href="{auth_url}" target="_blank"><button style="padding:8px 12px; border-radius:8px;">Login with Spotify</button></a>',
+            unsafe_allow_html=True,
+        )
+    except Exception:
+        st.sidebar.info("Spotify auth currently unavailable. Ensure your redirect URI and credentials are correct.")
 
 # ------------------------
 # Sidebar - Guest & Upload
@@ -175,7 +181,8 @@ else:
 # ------------------------
 # Spotify library (scrollable, hoverable cards)
 # ------------------------
-audio_url_data = None
+# Persisted audio selection: prefer session_state (so clicks persist across reruns)
+audio_url_data = st.session_state.get("audio_url_data", None)
 uploaded = None
 beats = []
 file_duration = 0.0
@@ -225,12 +232,16 @@ if sp:
                 artists = ", ".join([a["name"] for a in track.get("artists", [])])
                 preview_url = track.get("preview_url")
 
+                # track card (visual)
                 st.markdown(
                     f'<div class="track-card">🎵 <b>{name}</b><br><span style="font-size:12px; color:#aaa;">{artists}</span></div>',
                     unsafe_allow_html=True,
                 )
+
+                # BUTTON — when clicked, save preview URL into session_state so main player picks it up on rerun
                 if preview_url:
                     if st.button("▶ Load", key=f"sp_play_{idx}"):
+                        st.session_state["audio_url_data"] = preview_url
                         audio_url_data = preview_url
                         st.sidebar.success(f"Loaded {name}")
             st.markdown("</div>", unsafe_allow_html=True)
@@ -303,6 +314,8 @@ if uploaded and not audio_url_data:
             b64 = base64.b64encode(data).decode()
             mime = "audio/mpeg" if Path(temp_path).suffix.lower() != ".wav" else "audio/wav"
             audio_url_data = f"data:{mime};base64,{b64}"
+            # Persist uploaded selection to session_state so player always sees it
+            st.session_state["audio_url_data"] = audio_url_data
 
         st.sidebar.success(f"Detected ~{len(beats)} beats, duration {int(file_duration)}s")
     except Exception as e:
@@ -318,13 +331,15 @@ col1, col2 = st.columns([1, 2])
 
 with col1:
     st.header("Player")
-    if audio_url_data:
+    # prefer session_state-stored audio if present
+    current_audio = st.session_state.get("audio_url_data", audio_url_data)
+    if current_audio:
         try:
             from custom_player import render_custom_player
-            render_custom_player(audio_url_data, logo_b64=logo_b64)
+            render_custom_player(current_audio, logo_b64=logo_b64)
         except Exception as e:
             st.error(f"Could not load custom player: {e}")
-            st.audio(audio_url_data)
+            st.audio(current_audio)
     else:
         st.info("Upload or load a song to enable the player.")
 
@@ -335,31 +350,32 @@ with col2:
     st.header("Visualizer")
     if replay_intro:
         show_intro()
-    elif start_clicked and audio_url_data:
+    elif start_clicked and st.session_state.get("audio_url_data", None):
+        audio_for_visual = st.session_state.get("audio_url_data")
         if mode == "Ripple":
-            html = ripple.render_effect(beats, theme, sensitivity, particle_count, audio_url_data)
+            html = ripple.render_effect(beats, theme, sensitivity, particle_count, audio_for_visual)
             st.components.v1.html(html, height=680, scrolling=False)
         elif mode == "Synthwave":
             video_path = synthwave_video_path if os.path.exists(synthwave_video_path) else os.path.join("static", "synthwave_bg.mp4")
-            html = synthwave.get_html(audio_src=audio_url_data, beats=beats, intensity=intensity, grid_speed=grid_speed, grid_cols=grid_cols, video_path=video_path)
+            html = synthwave.get_html(audio_src=audio_for_visual, beats=beats, intensity=intensity, grid_speed=grid_speed, grid_cols=grid_cols, video_path=video_path)
             st.components.v1.html(html, height=700, scrolling=False)
         elif mode == "Ocean Reverb":
-            html = ocean_reverb.get_html(audio_url_data, beats=beats)
+            html = ocean_reverb.get_html(audio_for_visual, beats=beats)
             st.components.v1.html(html, height=700, scrolling=False)
         elif mode == "Resonance":
-            html = resonance.get_html(audio_url_data, beats=beats)
+            html = resonance.get_html(audio_for_visual, beats=beats)
             st.components.v1.html(html, height=720, scrolling=False)
         elif mode == "Mesh":
-            html = mesh.get_html(audio_url_data, beats=beats)
+            html = mesh.get_html(audio_for_visual, beats=beats)
             st.components.v1.html(html, height=720, scrolling=False)
         elif mode == "BeatSaber":
-            html = beatsaber.get_html(audio_url_data, beats=beats)
+            html = beatsaber.get_html(audio_for_visual, beats=beats)
             st.components.v1.html(html, height=720, scrolling=False)
         elif mode == "Custom Player":
             st.write("🎚 Custom Player is displayed on the left. Use its controls to play, tweak effects, and save presets.")
 
 st.markdown("---")
-st.markdown("🎧 **Tip:** For the best immersive experience, use headphones!", unsafe_allow_html=True)
+st.markdown("🎧 **Tip:** For the best immersive experience, use headphones! Song might take some time to load; be patient.", unsafe_allow_html=True)
 st.markdown(
     """<div style="text-align:center; margin-top:20px; font-size:14px; color:#ccc; text-shadow:0px 0px 6px rgba(255,255,255,0.3);">
     Created by <b>Nilam Chakraborty</b></div>""",
