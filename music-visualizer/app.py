@@ -82,17 +82,12 @@ logo_img_small = f'<img src="data:image/png;base64,{logo_b64}" width="60" height
 # ------------------------
 # Spotify OAuth flow handling (in-app)
 # ------------------------
-# You provided credentials — these will be used directly here.
-# If you'd rather keep them out of code, move them to .streamlit/secrets.toml and use st.secrets.
 SPOTIPY_CLIENT_ID = "083fa034491a43e28929a294097721c5"
 SPOTIPY_CLIENT_SECRET = "fe82667d7d374f13af99dc18fd4b7ea6"
-# Redirect URI must match one registered in your Spotify app settings
 SPOTIPY_REDIRECT_URI = "https://music-visualizer-hxuorbfc6jxffrzaujna37.streamlit.app/"
 
-# Spotify scope we need
 SPOTIFY_SCOPE = "user-library-read user-read-private"
 
-# prepare auth manager (we'll use it for generating auth URL and exchanging code)
 auth_manager = SpotifyOAuth(
     client_id=SPOTIPY_CLIENT_ID,
     client_secret=SPOTIPY_CLIENT_SECRET,
@@ -101,30 +96,25 @@ auth_manager = SpotifyOAuth(
     cache_path=".spotify_token_cache",
 )
 
-# Try to pick up token from session state (persist across runs)
 spotify_token_info = st.session_state.get("spotify_token_info", None)
 sp = None
 spotify_user_display = None
 
-# check if Streamlit app got a callback with ?code=...
-params = st.experimental_get_query_params()
+# ✅ FIX: use st.query_params (not deprecated experimental)
+params = st.query_params
 if "code" in params and not spotify_token_info:
-    # user returned from Spotify auth flow -> exchange code for token
-    code = params["code"][0]
+    code = params["code"]
     try:
         token_info = auth_manager.get_access_token(code)
-        # token_info is typically a dict with access_token, refresh_token, expires_at
         spotify_token_info = token_info
         st.session_state["spotify_token_info"] = spotify_token_info
-        # clear query params to hide code in URL
-        st.experimental_set_query_params()
+        st.query_params.clear()  # remove ?code= from URL
     except Exception as e:
         st.sidebar.error(f"Spotify auth failed: {e}")
         spotify_token_info = None
         if "spotify_token_info" in st.session_state:
             del st.session_state["spotify_token_info"]
 
-# If we already have token info in session, create client
 if spotify_token_info:
     access_token = spotify_token_info.get("access_token") if isinstance(spotify_token_info, dict) else spotify_token_info
     try:
@@ -132,7 +122,6 @@ if spotify_token_info:
         profile = sp.me()
         spotify_user_display = profile.get("display_name") or profile.get("id")
     except Exception:
-        # token might be expired; attempt refresh using auth_manager
         try:
             refresh_token = spotify_token_info.get("refresh_token") if isinstance(spotify_token_info, dict) else None
             if refresh_token:
@@ -147,7 +136,7 @@ if spotify_token_info:
             spotify_user_display = None
 
 # ------------------------
-# Show header (with username if available)
+# Show header
 # ------------------------
 user_label = f"Welcome {spotify_user_display}" if spotify_user_display else "(Guest)"
 st.markdown(
@@ -160,17 +149,18 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# If not authenticated, show Spotify login prompt (but do not break guest flow)
 if not sp:
     st.sidebar.markdown("---")
     st.sidebar.markdown("#### Spotify")
     st.sidebar.write("Sign in with Spotify to browse your library and play previews.")
     auth_url = auth_manager.get_authorize_url()
-    st.sidebar.markdown(f'<a href="{auth_url}" target="_blank"><button style="padding:8px 12px; border-radius:8px;">Login with Spotify</button></a>', unsafe_allow_html=True)
-    st.sidebar.markdown("After signing in Spotify will redirect back to this page. If you don't see the library, refresh the page.")
+    st.sidebar.markdown(
+        f'<a href="{auth_url}" target="_blank"><button style="padding:8px 12px; border-radius:8px;">Login with Spotify</button></a>',
+        unsafe_allow_html=True,
+    )
 
 # ------------------------
-# Sidebar - Guest & Upload (keeps existing guest upload flow)
+# Sidebar - Guest & Upload
 # ------------------------
 st.sidebar.header("Welcome")
 if "guest" not in st.session_state:
@@ -183,7 +173,7 @@ else:
     st.sidebar.info("Click **Continue as Guest** to start.")
 
 # ------------------------
-# Spotify search or library listing (if authenticated)
+# Spotify library (scrollable, hoverable cards)
 # ------------------------
 audio_url_data = None
 uploaded = None
@@ -194,34 +184,68 @@ processing_error = None
 if sp:
     st.sidebar.markdown("---")
     st.sidebar.markdown("### 🎧 Spotify Library")
+
     try:
-        # Show top saved tracks (first 10) with a search bar on top
-        search_query = st.sidebar.text_input("Search your Spotify library (or global search)")
+        search_query = st.sidebar.text_input("Search Spotify")
         if search_query:
-            res = sp.search(q=search_query, limit=8, type="track")
+            res = sp.search(q=search_query, limit=20, type="track")
             items = res.get("tracks", {}).get("items", [])
         else:
-            saved = sp.current_user_saved_tracks(limit=12)
+            saved = sp.current_user_saved_tracks(limit=20)
             items = [s["track"] for s in saved.get("items", [])]
-        for idx, track in enumerate(items):
-            name = track.get("name")
-            artists = ", ".join([a["name"] for a in track.get("artists", [])])
-            preview_url = track.get("preview_url")
-            st.sidebar.write(f"**{name}** — {artists}")
-            if preview_url:
-                if st.sidebar.button(f"▶ Play preview", key=f"sp_play_{idx}"):
-                    audio_url_data = preview_url
-                    st.sidebar.success(f"Loaded preview for {name}")
+
+        # scrollable container
+        st.sidebar.markdown(
+            """
+            <style>
+            .scroll-box {
+                max-height: 260px;
+                overflow-y: auto;
+                padding-right: 8px;
+            }
+            .track-card {
+                padding: 6px;
+                margin-bottom: 6px;
+                border-radius: 6px;
+                transition: background 0.2s;
+            }
+            .track-card:hover {
+                background: rgba(255,255,255,0.08);
+                cursor: pointer;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        with st.sidebar:
+            st.markdown('<div class="scroll-box">', unsafe_allow_html=True)
+            for idx, track in enumerate(items):
+                name = track.get("name")
+                artists = ", ".join([a["name"] for a in track.get("artists", [])])
+                preview_url = track.get("preview_url")
+
+                st.markdown(
+                    f'<div class="track-card">🎵 <b>{name}</b><br><span style="font-size:12px; color:#aaa;">{artists}</span></div>',
+                    unsafe_allow_html=True,
+                )
+                if preview_url:
+                    if st.button("▶ Load", key=f"sp_play_{idx}"):
+                        audio_url_data = preview_url
+                        st.sidebar.success(f"Loaded {name}")
+            st.markdown("</div>", unsafe_allow_html=True)
+
     except Exception as e:
-        st.sidebar.warning("Could not fetch library. Try refreshing or re-login.")
+        st.sidebar.warning("Could not fetch library.")
         st.sidebar.info(str(e))
 
-# If not using Spotify or no selection yet, allow upload / demo
+# ------------------------
+# Upload / Demo fallback
+# ------------------------
 st.sidebar.markdown("---")
 st.sidebar.markdown("### Or upload your own")
 uploaded = st.sidebar.file_uploader("Upload MP3/WAV", type=["mp3", "wav", "m4a", "flac"])
 
-# Offer demo file if user added one to demo_songs folder (resolve relative to BASE_DIR)
 demo_path = Path(os.path.join(BASE_DIR, "demo_songs"))
 demo_files = []
 if demo_path.exists() and demo_path.is_dir():
@@ -264,7 +288,7 @@ def write_temp_file(uploaded_file):
 
 
 # ------------------------
-# Process uploaded audio (if any) into data URI
+# Process uploaded audio
 # ------------------------
 if uploaded and not audio_url_data:
     try:
@@ -277,9 +301,7 @@ if uploaded and not audio_url_data:
         with open(temp_path, "rb") as f:
             data = f.read()
             b64 = base64.b64encode(data).decode()
-            mime = "audio/mpeg"
-            if Path(temp_path).suffix.lower() == ".wav":
-                mime = "audio/wav"
+            mime = "audio/mpeg" if Path(temp_path).suffix.lower() != ".wav" else "audio/wav"
             audio_url_data = f"data:{mime};base64,{b64}"
 
         st.sidebar.success(f"Detected ~{len(beats)} beats, duration {int(file_duration)}s")
