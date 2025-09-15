@@ -911,6 +911,11 @@ def render_custom_player(audio_url_data: str, logo_b64: str = "", height: int = 
     else:
         logo_html = '<div style="font-weight:900; font-size:18px; color:#071018; display:flex; align-items:center; justify-content:center; width:100%; height:100%;">SP</div>'
 
+    if audio_url_data and not audio_url_data.startswith("data:"):
+        audio_src = audio_url_data  # Spotify URL (preview)
+    else:
+        audio_src = audio_url_data or ""
+    
     # Replace placeholders
     html = custom_player_template.replace("__AUDIO_SRC__", audio_url_data if audio_url_data else "")
     html = html.replace("__LOGO_SLOT__", logo_html)
