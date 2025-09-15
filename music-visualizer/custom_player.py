@@ -917,7 +917,7 @@ def render_custom_player(audio_url_data: str, logo_b64: str = "", height: int = 
         audio_src = audio_url_data or ""
     
     # Replace placeholders
-    html = custom_player_template.replace("__AUDIO_SRC__", audio_url_data if audio_url_data else "")
+    html = custom_player_template.replace("__AUDIO_SRC__", audio_src)
     html = html.replace("__LOGO_SLOT__", logo_html)
 
     # Embed the HTML
