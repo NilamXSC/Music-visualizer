@@ -5,7 +5,7 @@ import base64
 import tempfile
 import os
 from pathlib import Path
-import jiosaavn  # ✅ new import
+import jiosaavn  # ✅ JioSaavn import
 
 # ------------------------
 # Page config + Logo / Favicon
@@ -87,14 +87,6 @@ st.markdown(
 )
 
 # ------------------------
-# Make sure session state keys exist (safe defaults)
-# ------------------------
-if "audio_url_data" not in st.session_state:
-    st.session_state["audio_url_data"] = None
-if "now_playing" not in st.session_state:
-    st.session_state["now_playing"] = None
-
-# ------------------------
 # Sidebar - Guest & Upload
 # ------------------------
 st.sidebar.header("Welcome")
@@ -108,71 +100,56 @@ else:
     st.sidebar.info("Click **Continue as Guest** to start.")
 
 # ------------------------
-# JioSaavn Integration - robust wrapper
+# JioSaavn search wrapper (cached + resilient)
 # ------------------------
+@st.cache_data(ttl=300)
 def saavn_search(query: str, n: int = 10):
     """
-    Unified wrapper to return a list of dicts:
-    [{'song': <title>, 'singers': <artists>, 'media_url': <url>}, ...]
-    Works with older jiosaavn.search_for_song or newer Sync client.
+    Cached, resilient wrapper for jiosaavn search.
+    Returns a list of dicts with keys: 'song', 'singers', 'media_url'.
     """
-    # 1) Try direct search_for_song (older API)
     try:
         if hasattr(jiosaavn, "search_for_song"):
             results = jiosaavn.search_for_song(query, n=n)
-            # assume results is a list of dicts with 'song','singers','media_url' already
             normalized = []
             for r in results[:n]:
                 normalized.append({
                     "song": r.get("song") or r.get("title") or r.get("name"),
-                    "singers": r.get("singers") or r.get("artists") or r.get("singer"),
-                    "media_url": r.get("media_url") or r.get("media") or r.get("mp3"),
+                    "singers": r.get("singers") or r.get("artists"),
+                    "media_url": r.get("media_url") or r.get("media") or r.get("mp3")
                 })
             return normalized
     except Exception:
-        # fall through to Sync API attempt
         pass
 
-    # 2) Try Sync.JioSaavn client (newer packaging)
     try:
         from jiosaavn import Sync  # type: ignore
         client = Sync.JioSaavn()
-        # The Sync client returns either dict or list depending on library version; handle both.
         resp = client.search(query)
-        songs_list = None
+        songs_list = []
         if isinstance(resp, list):
             songs_list = resp
         elif isinstance(resp, dict):
-            # common keys that may contain song lists
             for k in ("songs", "results", "data", "hits"):
                 if k in resp and isinstance(resp[k], list):
                     songs_list = resp[k]
                     break
-            # fallback: maybe resp contains 'song' keys directly
-            if songs_list is None:
-                # If 'resp' looks like a dict for single song, wrap it
+            if not songs_list:
                 songs_list = [resp]
-        else:
-            songs_list = []
 
         normalized = []
         for s in songs_list[:n]:
-            # try various possible keys
             title = s.get("song") or s.get("title") or s.get("name") or s.get("track")
-            singers = s.get("singers") or s.get("artists") or s.get("primaryArtists") or s.get("subtitle")
-            media_url = s.get("media_url") or s.get("media") or s.get("downloadUrl") or s.get("perma_url") or s.get("url") or s.get("mp3")
-            normalized.append({
-                "song": title,
-                "singers": singers,
-                "media_url": media_url
-            })
+            singers = s.get("singers") or s.get("artists") or s.get("subtitle")
+            media_url = s.get("media_url") or s.get("media") or s.get("downloadUrl") or s.get("mp3") or s.get("url")
+            normalized.append({"song": title, "singers": singers, "media_url": media_url})
         return normalized
     except Exception as e:
-        # re-raise as runtime error so caller can display message
         raise RuntimeError(f"JioSaavn search failed: {e}")
 
+
 # ------------------------
-# audio/session scaffolding
+# Audio state
 # ------------------------
 audio_url_data = st.session_state.get("audio_url_data", None)
 uploaded = None
@@ -180,6 +157,9 @@ beats = []
 file_duration = 0.0
 processing_error = None
 
+# ------------------------
+# JioSaavn Integration
+# ------------------------
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 🎧 Search JioSaavn")
 search_query = st.sidebar.text_input("Search for a song")
@@ -188,9 +168,10 @@ if search_query:
     try:
         results = saavn_search(search_query, n=10)
         for idx, song in enumerate(results):
-            title = song.get("song") or "Unknown Title"
-            artists = song.get("singers") or "Unknown Artist"
-            media_url = song.get("media_url")
+            title = song["song"]
+            artists = song["singers"]
+            media_url = song["media_url"]
+
             st.sidebar.write(f"🎵 {title} — {artists}")
             if media_url:
                 if st.sidebar.button(f"▶ Load", key=f"saavn_{idx}"):
@@ -198,8 +179,6 @@ if search_query:
                     st.session_state["now_playing"] = f"{title} — {artists}"
                     audio_url_data = media_url
                     st.sidebar.success(f"Loaded {title}")
-                    # use new API
-                    st.rerun()
     except Exception as e:
         st.sidebar.error(f"JioSaavn error: {e}")
 
@@ -219,9 +198,9 @@ if demo_path.exists() and demo_path.is_dir():
 
 selected_demo = None
 if demo_files:
-    # show only filenames
     demo_names = [Path(f).name for f in demo_files]
     selected_demo = st.sidebar.selectbox("Or choose demo song", ["-- none --"] + demo_names)
+
     if selected_demo and selected_demo != "-- none --":
         demo_path_selected = next(f for f in demo_files if Path(f).name == selected_demo)
         with open(demo_path_selected, "rb") as f:
@@ -230,8 +209,6 @@ if demo_files:
             mime = "audio/mpeg" if Path(demo_path_selected).suffix.lower() != ".wav" else "audio/wav"
             st.session_state["audio_url_data"] = f"data:{mime};base64,{b64}"
             st.session_state["now_playing"] = Path(demo_path_selected).name
-        # re-render with the newly selected demo
-        st.rerun()
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("### Visual settings")
@@ -280,7 +257,6 @@ if uploaded and not st.session_state.get("audio_url_data", None):
             st.session_state["now_playing"] = uploaded.name if hasattr(uploaded, "name") else Path(temp_path).name
 
         st.sidebar.success(f"Detected ~{len(beats)} beats, duration {int(file_duration)}s")
-        st.rerun()
     except Exception as e:
         processing_error = str(e)
         st.sidebar.error(f"Could not analyze audio: {e}")
