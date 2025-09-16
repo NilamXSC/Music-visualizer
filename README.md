@@ -1,4 +1,4 @@
-# 🎶 SonicPlay - Music Visualizer
+# 🎶 SonicPlay — Music Visualizer
 
 ![Python](https://img.shields.io/badge/Python-3.9%2B-blue?logo=python&logoColor=white)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.x-FF4B4B?logo=streamlit&logoColor=white)
@@ -6,6 +6,9 @@
 ![JioSaavn](https://img.shields.io/badge/API-JioSaavn-00C300?logo=spotify&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green?logo=open-source-initiative)
 ![Status](https://img.shields.io/badge/Status-Active-success?logo=github)
+[![GitHub](https://img.shields.io/badge/GitHub-NilamXSC-181717?logo=github)](https://github.com/NilamXSC)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Nilam%20Chakraborty-0A66C2?logo=linkedin&logoColor=white)](https://www.linkedin.com/in/chakrabortynilam9)
+[![Instagram](https://img.shields.io/badge/Instagram-@nilam.jackdaw7-E4405F?logo=instagram&logoColor=white)](https://www.instagram.com/nilam.jackdaw7)
 
 ---
 
@@ -49,18 +52,18 @@
 
 ## 🛠️ Tech Stack
 
-- [Streamlit](https://streamlit.io/) — Frontend framework
-- [Librosa](https://librosa.org/) — Audio analysis (beats, tempo, waveform)
-- [Numpy](https://numpy.org/) — Data processing
-- [Requests](https://docs.python-requests.org/) — API requests
-- [JioSaavn API](https://saavn.dev) — Music search & playback integration
+- Streamlit — Frontend framework
+- Librosa — Audio analysis
+- Numpy — Data processing
+- Requests — API requests
+- JioSaavn API — Music search & playback integration
 - Custom HTML + CSS + JS animations for **visual effects**
 
 ---
 
 ## 📂 Project Structure
 
-Music-visualizer/ ├── app.py                # Main Streamlit app ├── custom_player.py      # Custom audio player ├── effects/              # Visualization effects (Ripple, Synthwave, etc.) ├── demo_songs/           # Sample demo songs ├── static/               # Static assets (logo, video, favicon) ├── requirements.txt      # Dependencies └── README.md             # Project documentation
+Music-visualizer/ ├── app.py ├── custom_player.py ├── effects/ ├── demo_songs/ ├── static/ ├── requirements.txt └── README.md
 
 ---
 
@@ -112,50 +115,21 @@ Change visual mode, sensitivity, particles, and theme.
 
 4. Enjoy the Music
 
-Hit Start Visualizer and immerse yourself! 🔥
+Hit Start Visualizer and immerse yourself.
 
-
-
-
-
----
-
-📸 Screenshots
-
-Visualizer	Demo
-
-Synthwave	🌌 Retro futuristic grid with beats
-Ripple	💧 Wave-like ripples synced to tempo
-Mesh	🔗 3D reactive mesh
-BeatSaber	⚡ Neon block slicer animation
-
-
-(Add actual screenshots here if available)
 
 
 ---
 
 🔗 Connect With Me
 
-💻 GitHub: NilamXSC
+GitHub: NilamXSC
 
-💼 LinkedIn: Nilam Chakraborty
+LinkedIn: Nilam Chakraborty
 
-📷 Instagram: @nilam.jackdaw7
+Instagram: @nilam.jackdaw7
 
-🌍 Official App: SonicPlay
-
-
-
----
-
-⭐ Acknowledgments
-
-Streamlit community for enabling quick data apps
-
-saavn.dev for JioSaavn API
-
-Open-source libraries powering this project
+App: SonicPlay
 
 
 
@@ -164,9 +138,9 @@ Open-source libraries powering this project
 📝 License
 
 This project is licensed under the MIT License.
-Feel free to use, modify, and share — just credit the author.
 
 
 ---
 
 🎶 Made with passion by Nilam Chakraborty 💜
+
