@@ -5,7 +5,7 @@ import base64
 import tempfile
 import os
 from pathlib import Path
-import requests  # ✅ use saavn.dev API instead of jiosaavn
+import requests
 
 # ------------------------
 # Page config + Logo / Favicon
