@@ -233,7 +233,9 @@ if sp:
                 )
                 if preview_url:
                     if st.button("▶ Load", key=f"sp_play_{idx}"):
+                        # store preview and now playing into session state so player re-renders reliably
                         st.session_state["audio_url_data"] = preview_url
+                        st.session_state["now_playing"] = f"{name} — {artists}"
                         audio_url_data = preview_url
                         st.sidebar.success(f"Loaded {name}")
             st.markdown("</div>", unsafe_allow_html=True)
@@ -261,6 +263,8 @@ if demo_files:
     selected_demo = st.sidebar.selectbox("Or choose demo song", ["-- none --"] + demo_files)
     if selected_demo and selected_demo != "-- none --" and not uploaded and not audio_url_data:
         uploaded = open(selected_demo, "rb")
+        # set now playing label for demo selection
+        st.session_state["now_playing"] = Path(selected_demo).name
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("### Visual settings")
@@ -307,6 +311,12 @@ if uploaded and not audio_url_data:
             mime = "audio/mpeg" if Path(temp_path).suffix.lower() != ".wav" else "audio/wav"
             audio_url_data = f"data:{mime};base64,{b64}"
             st.session_state["audio_url_data"] = audio_url_data
+            # set now_playing from uploaded file name when available
+            try:
+                name_label = uploaded.name if hasattr(uploaded, "name") else Path(temp_path).name
+            except Exception:
+                name_label = Path(temp_path).name
+            st.session_state["now_playing"] = name_label
 
         st.sidebar.success(f"Detected ~{len(beats)} beats, duration {int(file_duration)}s")
     except Exception as e:
@@ -322,7 +332,13 @@ col1, col2 = st.columns([1, 2])
 
 with col1:
     st.header("Player")
+    # always pull the current audio and now_playing label from session state so clicks update the player
     current_audio = st.session_state.get("audio_url_data", None)
+    now_playing_label = st.session_state.get("now_playing", None)
+
+    if now_playing_label:
+        st.markdown(f"**Now Playing:** {now_playing_label}")
+
     if current_audio:
         try:
             from custom_player import render_custom_player
