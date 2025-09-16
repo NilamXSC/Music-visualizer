@@ -233,10 +233,11 @@ if sp:
                 )
                 if preview_url:
                     if st.button("▶ Load", key=f"sp_play_{idx}"):
-                        # store preview and now playing into session state
+                        # store preview and now playing into session state so player re-renders reliably
                         st.session_state["audio_url_data"] = preview_url
                         st.session_state["now_playing"] = f"{name} — {artists}"
-                        st.sidebar.success(f"Loaded {name}")
+                        # force rerun so Player column picks up the change immediately
+                        st.experimental_rerun()
                 else:
                     st.sidebar.caption("⚠ No preview available for this track")
             st.markdown("</div>", unsafe_allow_html=True)
@@ -261,12 +262,13 @@ if demo_path.exists() and demo_path.is_dir():
 
 selected_demo = None
 if demo_files:
+    # show only filenames to the user instead of full paths
     demo_labels = ["-- none --"] + [p.name for p in demo_files]
     selected_label = st.sidebar.selectbox("Or choose demo song", demo_labels)
-
-    if selected_label != "-- none --" and not uploaded and not audio_url_data:
+    if selected_label and selected_label != "-- none --" and not uploaded and not audio_url_data:
         selected_demo = demo_path / selected_label
         uploaded = open(selected_demo, "rb")
+        # set now playing label for demo selection
         st.session_state["now_playing"] = selected_label
 
 st.sidebar.markdown("---")
@@ -314,6 +316,7 @@ if uploaded and not audio_url_data:
             mime = "audio/mpeg" if Path(temp_path).suffix.lower() != ".wav" else "audio/wav"
             audio_url_data = f"data:{mime};base64,{b64}"
             st.session_state["audio_url_data"] = audio_url_data
+            # set now_playing from uploaded file name when available
             try:
                 name_label = uploaded.name if hasattr(uploaded, "name") else Path(temp_path).name
             except Exception:
@@ -334,6 +337,7 @@ col1, col2 = st.columns([1, 2])
 
 with col1:
     st.header("Player")
+    # always pull the current audio and now_playing label from session state so clicks update the player
     current_audio = st.session_state.get("audio_url_data", None)
     now_playing_label = st.session_state.get("now_playing", None)
 
