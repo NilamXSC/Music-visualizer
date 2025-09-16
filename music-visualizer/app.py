@@ -256,11 +256,18 @@ demo_files = []
 if demo_path.exists() and demo_path.is_dir():
     for p in demo_path.iterdir():
         if p.suffix.lower() in [".mp3", ".wav", ".m4a", ".flac"]:
-            demo_files.append(str(p))
+            demo_files.append(p)
 
 selected_demo = None
 if demo_files:
-    selected_demo = st.sidebar.selectbox("Or choose demo song", ["-- none --"] + demo_files)
+    demo_labels = ["-- none --"] + [p.name for p in demo_files]  # show only file names
+    selected_label = st.sidebar.selectbox("Or choose demo song", demo_labels)
+
+    if selected_label != "-- none --":
+        selected_demo = str(demo_path / selected_label)
+        if not uploaded and not audio_url_data:
+            uploaded = open(selected_demo, "rb")
+            st.session_state["now_playing"] = selected_label  # set "Now Playing"
     if selected_demo and selected_demo != "-- none --" and not uploaded and not audio_url_data:
         uploaded = open(selected_demo, "rb")
         # set now playing label for demo selection
@@ -342,7 +349,11 @@ with col1:
     if current_audio:
         try:
             from custom_player import render_custom_player
-            render_custom_player(current_audio, logo_b64=logo_b64)
+            if current_audio.startswith("https://p.scdn.co"):
+                render_custom_player(current_audio, logo_b64=logo_b64)
+            else:
+                render_custom_player(current_audio, logo_b64=logo_b64)
+
         except Exception as e:
             st.error(f"Could not load custom player: {e}")
             st.audio(current_audio)
