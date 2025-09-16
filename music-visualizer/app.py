@@ -145,7 +145,7 @@ if search_query:
                     st.session_state["now_playing"] = f"{title} — {artists}"
                     audio_url_data = media_url
                     st.sidebar.success(f"Loaded {title}")
-st.rerun()
+                    st.rerun()  # ✅ correct placement
     except Exception as e:
         st.sidebar.error(f"JioSaavn error: {e}")
 
@@ -168,7 +168,7 @@ if demo_files:
     demo_names = [Path(f).name for f in demo_files]
     selected_demo = st.sidebar.selectbox("Or choose demo song", ["None"] + demo_names)
 
-    if selected_demo and selected_demo != "-- none --":
+    if selected_demo and selected_demo != "None":
         demo_path_selected = next(f for f in demo_files if Path(f).name == selected_demo)
         with open(demo_path_selected, "rb") as f:
             data = f.read()
@@ -176,7 +176,7 @@ if demo_files:
             mime = "audio/mpeg" if Path(demo_path_selected).suffix.lower() != ".wav" else "audio/wav"
             st.session_state["audio_url_data"] = f"data:{mime};base64,{b64}"
             st.session_state["now_playing"] = Path(demo_path_selected).name
-st.rerun()
+        st.rerun()  # ✅ added for demo songs
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("### Visual settings")
