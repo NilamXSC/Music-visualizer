@@ -145,6 +145,7 @@ if search_query:
                     st.session_state["now_playing"] = f"{title} — {artists}"
                     audio_url_data = media_url
                     st.sidebar.success(f"Loaded {title}")
+st.rerun()
     except Exception as e:
         st.sidebar.error(f"JioSaavn error: {e}")
 
@@ -165,7 +166,7 @@ if demo_path.exists() and demo_path.is_dir():
 selected_demo = None
 if demo_files:
     demo_names = [Path(f).name for f in demo_files]
-    selected_demo = st.sidebar.selectbox("Or choose demo song", ["-- none --"] + demo_names)
+    selected_demo = st.sidebar.selectbox("Or choose demo song", ["None"] + demo_names)
 
     if selected_demo and selected_demo != "-- none --":
         demo_path_selected = next(f for f in demo_files if Path(f).name == selected_demo)
@@ -175,12 +176,13 @@ if demo_files:
             mime = "audio/mpeg" if Path(demo_path_selected).suffix.lower() != ".wav" else "audio/wav"
             st.session_state["audio_url_data"] = f"data:{mime};base64,{b64}"
             st.session_state["now_playing"] = Path(demo_path_selected).name
+st.rerun()
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("### Visual settings")
 mode = st.sidebar.selectbox(
     "Visualizer Mode",
-    ["Ripple", "Synthwave", "Ocean Reverb", "Resonance", "Mesh", "BeatSaber", "Custom Player"],
+    ["Ripple", "Synthwave", "Ocean Reverb", "Resonance", "Mesh", "BeatSaber"],
 )
 sensitivity = st.sidebar.slider("Beat sensitivity", 0.3, 2.5, 1.0, step=0.1)
 theme = st.sidebar.selectbox("Theme", ["Neon (dark)", "Light", "Blue", "Cyberpunk", "Vaporwave", "Galaxy"])
