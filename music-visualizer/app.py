@@ -5,7 +5,7 @@ import base64
 import tempfile
 import os
 from pathlib import Path
-import jiosaavn  # ✅ JioSaavn import
+import requests  # ✅ use saavn.dev API instead of jiosaavn
 
 # ------------------------
 # Page config + Logo / Favicon
@@ -100,53 +100,17 @@ else:
     st.sidebar.info("Click **Continue as Guest** to start.")
 
 # ------------------------
-# JioSaavn search wrapper (cached + resilient)
+# JioSaavn search (saavn.dev API)
 # ------------------------
 @st.cache_data(ttl=300)
 def saavn_search(query: str, n: int = 10):
-    """
-    Cached, resilient wrapper for jiosaavn search.
-    Returns a list of dicts with keys: 'song', 'singers', 'media_url'.
-    """
-    try:
-        if hasattr(jiosaavn, "search_for_song"):
-            results = jiosaavn.search_for_song(query, n=n)
-            normalized = []
-            for r in results[:n]:
-                normalized.append({
-                    "song": r.get("song") or r.get("title") or r.get("name"),
-                    "singers": r.get("singers") or r.get("artists"),
-                    "media_url": r.get("media_url") or r.get("media") or r.get("mp3")
-                })
-            return normalized
-    except Exception:
-        pass
-
-    try:
-        from jiosaavn import Sync  # type: ignore
-        client = Sync.JioSaavn()
-        resp = client.search(query)
-        songs_list = []
-        if isinstance(resp, list):
-            songs_list = resp
-        elif isinstance(resp, dict):
-            for k in ("songs", "results", "data", "hits"):
-                if k in resp and isinstance(resp[k], list):
-                    songs_list = resp[k]
-                    break
-            if not songs_list:
-                songs_list = [resp]
-
-        normalized = []
-        for s in songs_list[:n]:
-            title = s.get("song") or s.get("title") or s.get("name") or s.get("track")
-            singers = s.get("singers") or s.get("artists") or s.get("subtitle")
-            media_url = s.get("media_url") or s.get("media") or s.get("downloadUrl") or s.get("mp3") or s.get("url")
-            normalized.append({"song": title, "singers": singers, "media_url": media_url})
-        return normalized
-    except Exception as e:
-        raise RuntimeError(f"JioSaavn search failed: {e}")
-
+    """Search JioSaavn songs via saavn.dev API."""
+    url = f"https://saavn.dev/api/search/songs?query={query}&limit={n}"
+    resp = requests.get(url, timeout=10)
+    data = resp.json()
+    if not data.get("success"):
+        return []
+    return data["data"]["results"]
 
 # ------------------------
 # Audio state
@@ -168,13 +132,15 @@ if search_query:
     try:
         results = saavn_search(search_query, n=10)
         for idx, song in enumerate(results):
-            title = song["song"]
-            artists = song["singers"]
-            media_url = song["media_url"]
+            title = song.get("name")
+            artists = ", ".join(a["name"] for a in song["artists"]["primary"]) if song.get("artists") else "Unknown"
+            album = song.get("album", {}).get("name", "")
+            downloads = song.get("downloadUrl", [])
+            media_url = downloads[0]["url"] if downloads else None
 
-            st.sidebar.write(f"🎵 {title} — {artists}")
+            st.sidebar.write(f"🎵 {title} — {artists} ({album})")
             if media_url:
-                if st.sidebar.button(f"▶ Load", key=f"saavn_{idx}"):
+                if st.sidebar.button("▶ Load", key=f"saavn_{idx}"):
                     st.session_state["audio_url_data"] = media_url
                     st.session_state["now_playing"] = f"{title} — {artists}"
                     audio_url_data = media_url
