@@ -34,6 +34,7 @@ pooch==1.8.2
 protobuf==6.32.0
 pyarrow==21.0.0
 pycparser==2.23
+pydantic<2.0
 pydeck==0.9.1
 python-dateutil==2.9.0.post0
 python-dotenv==1.0.1
