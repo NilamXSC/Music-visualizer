@@ -1,176 +1,172 @@
-🎶 SonicPlay — Interactive Music Visualizer
+# 🎶 SonicPlay — Music Visualizer
 
-SonicPlay is a fully interactive music visualization platform built with Python (Streamlit) and Web Audio APIs. It blends audio analysis, cyberpunk-inspired UI, and immersive real-time graphics to deliver a next-generation music player and visualizer.
+![Python](https://img.shields.io/badge/Python-3.9%2B-blue?logo=python&logoColor=white)
+![Streamlit](https://img.shields.io/badge/Streamlit-1.x-FF4B4B?logo=streamlit&logoColor=white)
+![Librosa](https://img.shields.io/badge/Librosa-Audio%20Analysis-orange)
+![JioSaavn](https://img.shields.io/badge/API-JioSaavn-00C300?logo=spotify&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-green?logo=open-source-initiative)
+![Status](https://img.shields.io/badge/Status-Active-success?logo=github)
 
-Whether you want to simply enjoy music with reactive visuals or experiment with audio effects like bass boost, reverb, pitch shift, DJ filters, and custom presets, SonicPlay turns every track into a visual and auditory performance.
+---
 
-✨ Features
+> A modern, interactive **music visualizer** built with **Streamlit** and integrated with **JioSaavn** 🎧  
+> Upload your own songs or search directly from JioSaavn, and experience immersive real-time visual effects.
 
-🎧 Custom Cyberpunk Player
+---
 
-Play, pause, seek, record, and download recordings
+## 🚀 Live Demo
+👉 [**Try SonicPlay Now**](https://music-visualizer-hxuorbfc6jxffrzaujna37.streamlit.app/)  
 
-Advanced controls: Bass, Treble, Pan, Reverb, Delay, Pitch Shift, DJ Sweep, Distortion
+---
 
-Save, load, and delete custom presets locally
+## ✨ Features
 
-🌌 Dynamic Visualizer Modes
+- 🎼 **Play music from multiple sources**
+  - Upload your own MP3/WAV/FLAC files
+  - Choose from included **demo songs**
+  - Search and play tracks directly from **JioSaavn**
+- 🎨 **Dynamic Visualizers**
+  - Ripple
+  - Synthwave (retro grid 🌌)
+  - Ocean Reverb
+  - Resonance
+  - Mesh
+  - BeatSaber
+  - Custom Player
+- 🎚 **Custom Controls**
+  - Adjust beat sensitivity
+  - Switch between multiple **themes** (Neon, Cyberpunk, Vaporwave, Galaxy, etc.)
+  - Change particle intensity & animation parameters
+- 💡 **Interactive UI**
+  - "Now Playing" info above player
+  - Smooth **reload with st.rerun()**
+  - Intro animation for immersive entry
+- 🌐 **Accessible Anywhere**
+  - Runs in the browser via Streamlit
+  - No installation needed for end-users
 
-Ripple
+---
 
-Synthwave Grid (with animated background)
+## 🛠️ Tech Stack
 
-Ocean Reverb
+- [Streamlit](https://streamlit.io/) — Frontend framework
+- [Librosa](https://librosa.org/) — Audio analysis (beats, tempo, waveform)
+- [Numpy](https://numpy.org/) — Data processing
+- [Requests](https://docs.python-requests.org/) — API requests
+- [JioSaavn API](https://saavn.dev) — Music search & playback integration
+- Custom HTML + CSS + JS animations for **visual effects**
 
-Resonance
+---
 
-Mesh
+## 📂 Project Structure
 
-BeatSaber
+Music-visualizer/ ├── app.py                # Main Streamlit app ├── custom_player.py      # Custom audio player ├── effects/              # Visualization effects (Ripple, Synthwave, etc.) ├── demo_songs/           # Sample demo songs ├── static/               # Static assets (logo, video, favicon) ├── requirements.txt      # Dependencies └── README.md             # Project documentation
 
-Custom Cyber Player with 3D Spectrum + Particle Sync
+---
 
-🖼️ Custom Themes
+## ⚡ Getting Started
 
-Neon (Dark)
-
-Cyberpunk
-
-Vaporwave
-
-Galaxy
-
-Light & Blue variants
-
-Vibrant mode: animated rainbow accents
-
-⚡ Real-Time Audio Effects
-
-Live FFT-based 3D spectrum analyzer
-
-Particle sync with treble & bass frequencies
-
-Impulse-response reverb engine
-
-WebAudio API powered sound filters
-
-🎨 Modern UI/UX
-
-Animated intro logo sequence
-
-Smooth glowing borders & cyberpunk style buttons
-
-Streamlit integration with responsive layout
-
-Favicon, branding logo, and fully themed dropdowns
-
-🛠️ Tech Stack
-
-Frontend / UI:
-
-Streamlit (Python framework)
-
-HTML5, CSS3, JavaScript (WebAudio API, Canvas)
-
-Font Awesome icons
-
-Audio Analysis:
-
-Librosa
- (beat detection, tempo analysis, waveform processing)
-
-NumPy
-
-Visualizer Effects:
-
-Custom JavaScript + Canvas animations
-
-p5.js integration (for Ripple & others)
-
-Deployment:
-
-Streamlit (Cloud or Local)
-
-Compatible with Docker / any Python hosting
-
-🚀 Getting Started
-
-1️⃣ Clone the Repository
-
+### 1️⃣ Clone the repository
+```bash
 git clone https://github.com/NilamXSC/Music-visualizer.git
-cd sonicplay
+cd Music-visualizer
 
-2️⃣ Install Dependencies
+2️⃣ Create a virtual environment
 
-We recommend using a virtual environment.
+python -m venv venv
+source venv/bin/activate   # (Linux/Mac)
+venv\Scripts\activate      # (Windows)
+
+3️⃣ Install dependencies
 
 pip install -r requirements.txt
 
-3️⃣ Run Locally
+4️⃣ Run the app
+
 streamlit run app.py
 
-4️⃣ Upload a Song
+Then open 👉 http://localhost:8501/ in your browser.
 
-Upload an MP3/WAV/FLAC/M4A file from the sidebar
 
-Or use the provided demo tracks in demo_songs/
+---
 
-5️⃣ Enjoy Interactive Visuals 🎶
-📂 Project Structure
-music-visualizer/
-│── app.py                # Main Streamlit app
-│── custom_player.py      # Cyberpunk player (HTML/CSS/JS)
-│── effects/              # Visualization modes
-│   ├── ripple.py
-│   ├── synthwave.py
-│   ├── ocean_reverb.py
-│   ├── resonance.py
-│   ├── mesh.py
-│   └── beatsaber.py
-│── demo_songs/           # Example tracks
-│── static/               # Assets (logo, favicon, background video)
-│── requirements.txt      # Python dependencies
-│── README.md             # Documentation
+🎧 How to Use
+
+1. Choose Mode
+
+Continue as Guest, or simply start searching.
+
+
+
+2. Play a Song
+
+Upload a file, select from demo songs, or search via JioSaavn.
+
+
+
+3. Customize Visualizer
+
+Change visual mode, sensitivity, particles, and theme.
+
+
+
+4. Enjoy the Music
+
+Hit Start Visualizer and immerse yourself! 🔥
+
+
+
+
+
+---
 
 📸 Screenshots
-🔊 Custom Cyber Player
 
-🌌 Synthwave Mode
+Visualizer	Demo
 
-🌍 Deployment
+Synthwave	🌌 Retro futuristic grid with beats
+Ripple	💧 Wave-like ripples synced to tempo
+Mesh	🔗 3D reactive mesh
+BeatSaber	⚡ Neon block slicer animation
 
-SonicPlay can be deployed on:
 
-Streamlit Cloud (recommended for demo)
+(Add actual screenshots here if available)
 
-Heroku / Render / Railway
 
-Dockerized environments
+---
 
-Any Python hosting with WebSocket support
+🔗 Connect With Me
 
-streamlit run app.py --server.enableCORS false
+💻 GitHub: NilamXSC
 
-🧑‍💻 Author
+💼 LinkedIn: Nilam Chakraborty
 
-👤 Nilam Chakraborty
+📷 Instagram: @nilam.jackdaw7
 
-💼 LinkedIn : https://www.linkedin.com/in/chakrabortynilam9
+🌍 Official App: SonicPlay
 
-📧 Email:chakrabortynilam88@gmail.com
 
-📜 License
 
-This project is licensed under the MIT License — feel free to use and modify with attribution.
+---
 
-🙌 Acknowledgments
+⭐ Acknowledgments
 
-Streamlit community for rapid prototyping
+Streamlit community for enabling quick data apps
 
-Librosa for amazing audio analysis tools
+saavn.dev for JioSaavn API
 
-Web Audio API for real-time DSP effects
+Open-source libraries powering this project
 
-Inspiration from Cyberpunk, Vaporwave & Galaxy visual themes
 
-🔥 SonicPlay makes your music visible. Turn every beat into an experience.
+
+---
+
+📝 License
+
+This project is licensed under the MIT License.
+Feel free to use, modify, and share — just credit the author.
+
+
+---
+
+🎶 Made with passion by Nilam Chakraborty 💜
