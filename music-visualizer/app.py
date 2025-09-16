@@ -236,8 +236,8 @@ if sp:
                         # store preview and now playing into session state so player re-renders reliably
                         st.session_state["audio_url_data"] = preview_url
                         st.session_state["now_playing"] = f"{name} — {artists}"
-                        audio_url_data = preview_url
                         st.sidebar.success(f"Loaded {name}")
+                        st.experimental_rerun()
             st.markdown("</div>", unsafe_allow_html=True)
 
     except Exception as e:
