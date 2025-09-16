@@ -5,9 +5,7 @@ import base64
 import tempfile
 import os
 from pathlib import Path
-import spotipy
-from spotipy.oauth2 import SpotifyOAuth
-
+import jiosaavn  # ✅ new import
 
 # ------------------------
 # Page config + Logo / Favicon
@@ -18,6 +16,7 @@ st.set_page_config(page_title="SonicPlay - Music Visualizer", layout="wide")
 BASE_DIR = os.path.dirname(__file__)
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 
+
 # ✅ Load logo + favicon (safe: returns empty string on failure)
 def load_base64(filename: str) -> str:
     path = os.path.join(STATIC_DIR, filename)
@@ -26,6 +25,7 @@ def load_base64(filename: str) -> str:
             return base64.b64encode(f.read()).decode()
     except Exception:
         return ""
+
 
 favicon_b64 = load_base64("favicon.ico")
 logo_b64 = load_base64("logo.png")
@@ -76,88 +76,15 @@ show_intro()
 # Replace plain title (dynamic)
 # ------------------------
 logo_img_small = f'<img src="data:image/png;base64,{logo_b64}" width="60" height="60">' if logo_b64 else ""
-
-
-# ------------------------
-# Spotify OAuth flow handling (in-app)
-# ------------------------
-SPOTIPY_CLIENT_ID = "083fa034491a43e28929a294097721c5"
-SPOTIPY_CLIENT_SECRET = "fe82667d7d374f13af99dc18fd4b7ea6"
-SPOTIPY_REDIRECT_URI = "https://music-visualizer-hxuorbfc6jxffrzaujna37.streamlit.app/"
-
-SPOTIFY_SCOPE = "user-library-read user-read-private"
-
-auth_manager = SpotifyOAuth(
-    client_id=SPOTIPY_CLIENT_ID,
-    client_secret=SPOTIPY_CLIENT_SECRET,
-    redirect_uri=SPOTIPY_REDIRECT_URI,
-    scope=SPOTIFY_SCOPE,
-    cache_path=".spotify_token_cache",
-)
-
-spotify_token_info = st.session_state.get("spotify_token_info", None)
-sp = None
-spotify_user_display = None
-
-# ✅ FIX: Only use st.query_params (new API)
-params = st.query_params
-if "code" in params and not spotify_token_info:
-    code = params["code"]
-    try:
-        token_info = auth_manager.get_access_token(code)
-        spotify_token_info = token_info
-        st.session_state["spotify_token_info"] = spotify_token_info
-        # clear ?code= from URL
-        st.query_params.clear()
-    except Exception as e:
-        st.sidebar.error(f"Spotify auth failed: {e}")
-        spotify_token_info = None
-        if "spotify_token_info" in st.session_state:
-            del st.session_state["spotify_token_info"]
-
-if spotify_token_info:
-    access_token = spotify_token_info.get("access_token") if isinstance(spotify_token_info, dict) else spotify_token_info
-    try:
-        sp = spotipy.Spotify(auth=access_token)
-        profile = sp.me()
-        spotify_user_display = profile.get("display_name") or profile.get("id")
-    except Exception:
-        try:
-            refresh_token = spotify_token_info.get("refresh_token") if isinstance(spotify_token_info, dict) else None
-            if refresh_token:
-                new_token = auth_manager.refresh_access_token(refresh_token)
-                st.session_state["spotify_token_info"] = new_token
-                access_token = new_token.get("access_token")
-                sp = spotipy.Spotify(auth=access_token)
-                profile = sp.me()
-                spotify_user_display = profile.get("display_name") or profile.get("id")
-        except Exception:
-            sp = None
-            spotify_user_display = None
-
-# ------------------------
-# Show header
-# ------------------------
-user_label = f"Welcome {spotify_user_display}" if spotify_user_display else "(Guest)"
 st.markdown(
     f"""
     <div style="display:flex; align-items:center; gap:12px;">
       {logo_img_small}
-      <h1 style="margin:0;">SonicPlay : Music Visualizer <span style="font-size:14px; color:#aaa;">{user_label}</span></h1>
+      <h1 style="margin:0;">SonicPlay : Music Visualizer</h1>
     </div>
     """,
     unsafe_allow_html=True,
 )
-
-if not sp:
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("#### Spotify")
-    st.sidebar.write("Sign in with Spotify to browse your library and play previews.")
-    auth_url = auth_manager.get_authorize_url()
-    st.sidebar.markdown(
-        f'<a href="{auth_url}" target="_blank"><button style="padding:8px 12px; border-radius:8px;">Login with Spotify</button></a>',
-        unsafe_allow_html=True,
-    )
 
 # ------------------------
 # Sidebar - Guest & Upload
@@ -173,75 +100,36 @@ else:
     st.sidebar.info("Click **Continue as Guest** to start.")
 
 # ------------------------
-# Spotify library (scrollable, hoverable cards)
+# JioSaavn Integration
 # ------------------------
-# Always pull from session_state
 audio_url_data = st.session_state.get("audio_url_data", None)
 uploaded = None
 beats = []
 file_duration = 0.0
 processing_error = None
 
-if sp:
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("### 🎧 Spotify Library")
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 🎧 Search JioSaavn")
+search_query = st.sidebar.text_input("Search for a song")
 
+if search_query:
     try:
-        search_query = st.sidebar.text_input("Search Spotify")
-        if search_query:
-            res = sp.search(q=search_query, limit=20, type="track")
-            items = res.get("tracks", {}).get("items", [])
-        else:
-            saved = sp.current_user_saved_tracks(limit=20)
-            items = [s["track"] for s in saved.get("items", [])]
+        results = jiosaavn.search_for_song(search_query, n=10)  # fetch top 10
+        for idx, song in enumerate(results):
+            title = song["song"]
+            artists = song["singers"]
+            media_url = song["media_url"]
 
-        # scrollable container
-        st.sidebar.markdown(
-            """
-            <style>
-            .scroll-box {
-                max-height: 260px;
-                overflow-y: auto;
-                padding-right: 8px;
-            }
-            .track-card {
-                padding: 6px;
-                margin-bottom: 6px;
-                border-radius: 6px;
-                transition: background 0.2s;
-            }
-            .track-card:hover {
-                background: rgba(255,255,255,0.08);
-                cursor: pointer;
-            }
-            </style>
-            """,
-            unsafe_allow_html=True,
-        )
-
-        with st.sidebar:
-            st.markdown('<div class="scroll-box">', unsafe_allow_html=True)
-            for idx, track in enumerate(items):
-                name = track.get("name")
-                artists = ", ".join([a["name"] for a in track.get("artists", [])])
-                preview_url = track.get("preview_url")
-
-                st.markdown(
-                    f'<div class="track-card">🎵 <b>{name}</b><br><span style="font-size:12px; color:#aaa;">{artists}</span></div>',
-                    unsafe_allow_html=True,
-                )
-                if preview_url:
-                    if st.button("▶ Load", key=f"sp_play_{idx}"):
-                        # store preview and now playing into session state so player re-renders reliably
-                        st.session_state["audio_url_data"] = preview_url
-                        st.session_state["now_playing"] = f"{name} — {artists}"
-                        audio_url_data = preview_url
-                        st.sidebar.success(f"Loaded {name}")
-            st.markdown("</div>", unsafe_allow_html=True)
-
+            st.sidebar.write(f"🎵 {title} — {artists}")
+            if media_url:
+                if st.sidebar.button(f"▶ Load", key=f"saavn_{idx}"):
+                    st.session_state["audio_url_data"] = media_url
+                    st.session_state["now_playing"] = f"{title} — {artists}"
+                    audio_url_data = media_url
+                    st.sidebar.success(f"Loaded {title}")
+                    st.experimental_rerun()
     except Exception as e:
-        st.sidebar.warning("Could not fetch library.")
-        st.sidebar.info(str(e))
+        st.sidebar.error(f"JioSaavn error: {e}")
 
 # ------------------------
 # Upload / Demo fallback
@@ -259,11 +147,19 @@ if demo_path.exists() and demo_path.is_dir():
 
 selected_demo = None
 if demo_files:
-    selected_demo = st.sidebar.selectbox("Or choose demo song", ["-- none --"] + demo_files)
-    if selected_demo and selected_demo != "-- none --" and not uploaded and not audio_url_data:
-        uploaded = open(selected_demo, "rb")
-        # set now playing label for demo selection
-        st.session_state["now_playing"] = Path(selected_demo).name
+    # show only filenames
+    demo_names = [Path(f).name for f in demo_files]
+    selected_demo = st.sidebar.selectbox("Or choose demo song", ["-- none --"] + demo_names)
+
+    if selected_demo and selected_demo != "-- none --":
+        demo_path_selected = next(f for f in demo_files if Path(f).name == selected_demo)
+        with open(demo_path_selected, "rb") as f:
+            data = f.read()
+            b64 = base64.b64encode(data).decode()
+            mime = "audio/mpeg" if Path(demo_path_selected).suffix.lower() != ".wav" else "audio/wav"
+            st.session_state["audio_url_data"] = f"data:{mime};base64,{b64}"
+            st.session_state["now_playing"] = Path(demo_path_selected).name
+        st.experimental_rerun()
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("### Visual settings")
@@ -296,7 +192,7 @@ def write_temp_file(uploaded_file):
 # ------------------------
 # Process uploaded audio
 # ------------------------
-if uploaded and not audio_url_data:
+if uploaded and not st.session_state.get("audio_url_data", None):
     try:
         temp_path = write_temp_file(uploaded)
         y, sr = librosa.load(temp_path, sr=None, mono=True)
@@ -308,16 +204,11 @@ if uploaded and not audio_url_data:
             data = f.read()
             b64 = base64.b64encode(data).decode()
             mime = "audio/mpeg" if Path(temp_path).suffix.lower() != ".wav" else "audio/wav"
-            audio_url_data = f"data:{mime};base64,{b64}"
-            st.session_state["audio_url_data"] = audio_url_data
-            # set now_playing from uploaded file name when available
-            try:
-                name_label = uploaded.name if hasattr(uploaded, "name") else Path(temp_path).name
-            except Exception:
-                name_label = Path(temp_path).name
-            st.session_state["now_playing"] = name_label
+            st.session_state["audio_url_data"] = f"data:{mime};base64,{b64}"
+            st.session_state["now_playing"] = uploaded.name if hasattr(uploaded, "name") else Path(temp_path).name
 
         st.sidebar.success(f"Detected ~{len(beats)} beats, duration {int(file_duration)}s")
+        st.experimental_rerun()
     except Exception as e:
         processing_error = str(e)
         st.sidebar.error(f"Could not analyze audio: {e}")
@@ -331,7 +222,6 @@ col1, col2 = st.columns([1, 2])
 
 with col1:
     st.header("Player")
-    # always pull the current audio and now_playing label from session state so clicks update the player
     current_audio = st.session_state.get("audio_url_data", None)
     now_playing_label = st.session_state.get("now_playing", None)
 
@@ -380,9 +270,9 @@ with col2:
             st.write("🎚 Custom Player is displayed on the left. Use its controls to play, tweak effects, and save presets.")
 
 st.markdown("---")
-st.markdown("🎧 Tip: For the best immersive experience, use headphones! Song might take some time to load, be patient.", unsafe_allow_html=True)
+st.markdown("🎧 **Tip:** For the best immersive experience, use headphones! Song might take some time to load, be patient.", unsafe_allow_html=True)
 st.markdown(
     """<div style="text-align:center; margin-top:20px; font-size:14px; color:#ccc; text-shadow:0px 0px 6px rgba(255,255,255,0.3);">
-Created by <b>Nilam Chakraborty</b></div>""",
+    Created by <b>Nilam Chakraborty</b></div>""",
     unsafe_allow_html=True,
 )
