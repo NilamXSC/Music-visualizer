@@ -8,6 +8,7 @@ from pathlib import Path
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 
+
 # ------------------------
 # Page config + Logo / Favicon
 # ------------------------
@@ -17,7 +18,6 @@ st.set_page_config(page_title="SonicPlay - Music Visualizer", layout="wide")
 BASE_DIR = os.path.dirname(__file__)
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 
-
 # ✅ Load logo + favicon (safe: returns empty string on failure)
 def load_base64(filename: str) -> str:
     path = os.path.join(STATIC_DIR, filename)
@@ -26,7 +26,6 @@ def load_base64(filename: str) -> str:
             return base64.b64encode(f.read()).decode()
     except Exception:
         return ""
-
 
 favicon_b64 = load_base64("favicon.ico")
 logo_b64 = load_base64("logo.png")
@@ -236,10 +235,8 @@ if sp:
                         # store preview and now playing into session state so player re-renders reliably
                         st.session_state["audio_url_data"] = preview_url
                         st.session_state["now_playing"] = f"{name} — {artists}"
-                        # force rerun so Player column picks up the change immediately
-                        st.experimental_rerun()
-                else:
-                    st.sidebar.caption("⚠ No preview available for this track")
+                        audio_url_data = preview_url
+                        st.sidebar.success(f"Loaded {name}")
             st.markdown("</div>", unsafe_allow_html=True)
 
     except Exception as e:
@@ -258,18 +255,15 @@ demo_files = []
 if demo_path.exists() and demo_path.is_dir():
     for p in demo_path.iterdir():
         if p.suffix.lower() in [".mp3", ".wav", ".m4a", ".flac"]:
-            demo_files.append(p)
+            demo_files.append(str(p))
 
 selected_demo = None
 if demo_files:
-    # show only filenames to the user instead of full paths
-    demo_labels = ["-- none --"] + [p.name for p in demo_files]
-    selected_label = st.sidebar.selectbox("Or choose demo song", demo_labels)
-    if selected_label and selected_label != "-- none --" and not uploaded and not audio_url_data:
-        selected_demo = demo_path / selected_label
+    selected_demo = st.sidebar.selectbox("Or choose demo song", ["-- none --"] + demo_files)
+    if selected_demo and selected_demo != "-- none --" and not uploaded and not audio_url_data:
         uploaded = open(selected_demo, "rb")
         # set now playing label for demo selection
-        st.session_state["now_playing"] = selected_label
+        st.session_state["now_playing"] = Path(selected_demo).name
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("### Visual settings")
@@ -386,9 +380,9 @@ with col2:
             st.write("🎚 Custom Player is displayed on the left. Use its controls to play, tweak effects, and save presets.")
 
 st.markdown("---")
-st.markdown("🎧 **Tip:** For the best immersive experience, use headphones! Song might take some time to load, be patient.", unsafe_allow_html=True)
+st.markdown("🎧 Tip: For the best immersive experience, use headphones! Song might take some time to load, be patient.", unsafe_allow_html=True)
 st.markdown(
     """<div style="text-align:center; margin-top:20px; font-size:14px; color:#ccc; text-shadow:0px 0px 6px rgba(255,255,255,0.3);">
-    Created by <b>Nilam Chakraborty</b></div>""",
+Created by <b>Nilam Chakraborty</b></div>""",
     unsafe_allow_html=True,
 )
