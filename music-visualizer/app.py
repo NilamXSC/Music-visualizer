@@ -34,7 +34,7 @@ logo_b64 = load_base64("logo.png")
 synthwave_video_path = os.path.join(STATIC_DIR, "synthwave_bg.mp4")
 
 
-# ✅ Intro animation (only inject favicon if available)
+# ✅ Intro animation
 def show_intro():
     favicon_link = f'<link rel="icon" href="data:image/x-icon;base64,{favicon_b64}">' if favicon_b64 else ""
     logo_img = f'<img src="data:image/png;base64,{logo_b64}" class="transparent-logo" width="180">' if logo_b64 else ""
@@ -73,7 +73,7 @@ def show_intro():
 show_intro()
 
 # ------------------------
-# Replace plain title (dynamic)
+# Replace plain title
 # ------------------------
 logo_img_small = f'<img src="data:image/png;base64,{logo_b64}" width="60" height="60">' if logo_b64 else ""
 st.markdown(
@@ -104,7 +104,6 @@ else:
 # ------------------------
 @st.cache_data(ttl=300)
 def saavn_search(query: str, n: int = 10):
-    """Search JioSaavn songs via saavn.dev API."""
     url = f"https://saavn.dev/api/search/songs?query={query}&limit={n}"
     resp = requests.get(url, timeout=10)
     data = resp.json()
@@ -145,7 +144,7 @@ if search_query:
                     st.session_state["now_playing"] = f"{title} — {artists}"
                     audio_url_data = media_url
                     st.sidebar.success(f"Loaded {title}")
-                    st.rerun()  # ✅ correct placement
+                    st.rerun()
     except Exception as e:
         st.sidebar.error(f"JioSaavn error: {e}")
 
@@ -176,8 +175,12 @@ if demo_files:
             mime = "audio/mpeg" if Path(demo_path_selected).suffix.lower() != ".wav" else "audio/wav"
             st.session_state["audio_url_data"] = f"data:{mime};base64,{b64}"
             st.session_state["now_playing"] = Path(demo_path_selected).name
-        st.rerun()  # ✅ added for demo songs
+        st.sidebar.success(f"Loaded {selected_demo}")
+        st.rerun()
 
+# ------------------------
+# Visual settings
+# ------------------------
 st.sidebar.markdown("---")
 st.sidebar.markdown("### Visual settings")
 mode = st.sidebar.selectbox(
@@ -193,7 +196,6 @@ if mode == "Synthwave":
     grid_speed = st.sidebar.slider("Synthwave Grid Speed", 0.1, 2.0, 0.6, step=0.1)
     grid_cols = st.sidebar.slider("Synthwave Grid Columns", 12, 60, 36, step=2)
 
-
 # ------------------------
 # Helper to write uploaded file to temp
 # ------------------------
@@ -204,7 +206,6 @@ def write_temp_file(uploaded_file):
     tmp.flush()
     tmp.close()
     return tmp.name
-
 
 # ------------------------
 # Process uploaded audio
