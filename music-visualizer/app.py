@@ -12,12 +12,9 @@ import requests
 # ------------------------
 st.set_page_config(page_title="SonicPlay - Music Visualizer", layout="wide")
 
-# Resolve project static directory relative to this file
 BASE_DIR = os.path.dirname(__file__)
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 
-
-# ✅ Load logo + favicon (safe: returns empty string on failure)
 def load_base64(filename: str) -> str:
     path = os.path.join(STATIC_DIR, filename)
     try:
@@ -26,15 +23,10 @@ def load_base64(filename: str) -> str:
     except Exception:
         return ""
 
-
 favicon_b64 = load_base64("favicon.ico")
 logo_b64 = load_base64("logo.png")
-
-# ✅ Synthwave video path (absolute)
 synthwave_video_path = os.path.join(STATIC_DIR, "synthwave_bg.mp4")
 
-
-# ✅ Intro animation (only inject favicon if available)
 def show_intro():
     favicon_link = f'<link rel="icon" href="data:image/x-icon;base64,{favicon_b64}">' if favicon_b64 else ""
     logo_img = f'<img src="data:image/png;base64,{logo_b64}" class="transparent-logo" width="180">' if logo_b64 else ""
@@ -49,32 +41,19 @@ def show_intro():
           100% {{ left:0; top:50%; transform: translateY(-50%) scale(0.2) rotate(-360deg); opacity:0; }}
         }}
         #logoIntro {{
-          position:fixed;
-          top:50%;
-          left:0;
+          position:fixed; top:50%; left:0;
           animation: logoIntroAnim 4s ease-in-out forwards;
-          z-index:10000;
-          background: transparent !important;
+          z-index:10000; background:transparent !important;
         }}
-        img.transparent-logo {{
-          background: transparent !important;
-          display:block;
-        }}
+        img.transparent-logo {{ background:transparent !important; display:block; }}
         </style>
-        <div id="logoIntro">
-          {logo_img}
-        </div>
+        <div id="logoIntro">{logo_img}</div>
         """,
         unsafe_allow_html=True,
     )
 
-
-# Show intro on load
 show_intro()
 
-# ------------------------
-# Replace plain title (dynamic)
-# ------------------------
 logo_img_small = f'<img src="data:image/png;base64,{logo_b64}" width="60" height="60">' if logo_b64 else ""
 st.markdown(
     f"""
@@ -93,7 +72,6 @@ st.sidebar.header("Welcome")
 if "guest" not in st.session_state:
     if st.sidebar.button("Continue as Guest"):
         st.session_state["guest"] = True
-
 if "guest" in st.session_state:
     st.sidebar.success("Signed in as **Guest**")
 else:
@@ -104,7 +82,6 @@ else:
 # ------------------------
 @st.cache_data(ttl=300)
 def saavn_search(query: str, n: int = 10):
-    """Search JioSaavn songs via saavn.dev API."""
     url = f"https://saavn.dev/api/search/songs?query={query}&limit={n}"
     resp = requests.get(url, timeout=10)
     data = resp.json()
@@ -112,14 +89,8 @@ def saavn_search(query: str, n: int = 10):
         return []
     return data["data"]["results"]
 
-# ------------------------
-# Audio state
-# ------------------------
 audio_url_data = st.session_state.get("audio_url_data", None)
-uploaded = None
 beats = []
-file_duration = 0.0
-processing_error = None
 
 # ------------------------
 # JioSaavn Integration
@@ -134,18 +105,15 @@ if search_query:
         for idx, song in enumerate(results):
             title = song.get("name")
             artists = ", ".join(a["name"] for a in song["artists"]["primary"]) if song.get("artists") else "Unknown"
-            album = song.get("album", {}).get("name", "")
             downloads = song.get("downloadUrl", [])
             media_url = downloads[0]["url"] if downloads else None
 
-            st.sidebar.write(f"🎵 {title} — {artists} ({album})")
+            st.sidebar.write(f"🎵 {title} — {artists}")
             if media_url:
                 if st.sidebar.button("▶ Load", key=f"saavn_{idx}"):
                     st.session_state["audio_url_data"] = media_url
                     st.session_state["now_playing"] = f"{title} — {artists}"
-                    audio_url_data = media_url
-                    st.sidebar.success(f"Loaded {title}")
-                    st.rerun()
+                    st.experimental_rerun()
     except Exception as e:
         st.sidebar.error(f"JioSaavn error: {e}")
 
@@ -157,105 +125,86 @@ st.sidebar.markdown("### Or upload your own")
 uploaded = st.sidebar.file_uploader("Upload MP3/WAV", type=["mp3", "wav", "m4a", "flac"])
 
 demo_path = Path(os.path.join(BASE_DIR, "demo_songs"))
-demo_files = []
-if demo_path.exists() and demo_path.is_dir():
-    for p in demo_path.iterdir():
-        if p.suffix.lower() in [".mp3", ".wav", ".m4a", ".flac"]:
-            demo_files.append(str(p))
+demo_files = [str(p) for p in demo_path.iterdir() if p.suffix.lower() in [".mp3", ".wav", ".m4a", ".flac"]] if demo_path.exists() else []
 
-selected_demo = None
 if demo_files:
     demo_names = [Path(f).name for f in demo_files]
-    selected_demo = st.sidebar.selectbox("Or choose demo song", ["None"] + demo_names)
-
-    if selected_demo and selected_demo != "None":
+    selected_demo = st.sidebar.selectbox("Or choose demo song", ["-- none --"] + demo_names, key="demo_selectbox")
+    if selected_demo and selected_demo != "-- none --":
         demo_path_selected = next(f for f in demo_files if Path(f).name == selected_demo)
-        with open(demo_path_selected, "rb") as f:
-            data = f.read()
-            b64 = base64.b64encode(data).decode()
-            mime = "audio/mpeg" if Path(demo_path_selected).suffix.lower() != ".wav" else "audio/wav"
-            # ✅ Fix: Always overwrite state and force rerun so player reloads
-            st.session_state["audio_url_data"] = f"data:{mime};base64,{b64}"
-            st.session_state["now_playing"] = Path(demo_path_selected).name
-        st.sidebar.success(f"Loaded {selected_demo}")
-        st.rerun()  # <-- correct placement
+        if st.session_state.get("last_demo_selected") != demo_path_selected:
+            try:
+                y, sr = librosa.load(demo_path_selected, sr=None, mono=True)
+                tempo, beat_frames = librosa.beat.beat_track(y=y, sr=sr, trim=False)
+                beats = librosa.frames_to_time(beat_frames, sr=sr).tolist()
+                with open(demo_path_selected, "rb") as f:
+                    data = f.read()
+                    b64 = base64.b64encode(data).decode()
+                    mime = "audio/mpeg" if Path(demo_path_selected).suffix.lower() != ".wav" else "audio/wav"
+                    st.session_state["audio_url_data"] = f"data:{mime};base64,{b64}"
+                    st.session_state["now_playing"] = Path(demo_path_selected).name
+                    st.session_state["last_demo_selected"] = demo_path_selected
+                st.experimental_rerun()
+            except Exception as e:
+                st.sidebar.error(f"Demo load failed: {e}")
+
+if uploaded:
+    uploaded_name = uploaded.name if hasattr(uploaded, "name") else None
+    if st.session_state.get("last_uploaded_name") != uploaded_name:
+        try:
+            suffix = Path(uploaded.name).suffix
+            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+            tmp.write(uploaded.read())
+            tmp.flush()
+            tmp.close()
+            y, sr = librosa.load(tmp.name, sr=None, mono=True)
+            tempo, beat_frames = librosa.beat.beat_track(y=y, sr=sr, trim=False)
+            beats = librosa.frames_to_time(beat_frames, sr=sr).tolist()
+            with open(tmp.name, "rb") as f:
+                data = f.read()
+                b64 = base64.b64encode(data).decode()
+                mime = "audio/mpeg" if suffix.lower() != ".wav" else "audio/wav"
+                st.session_state["audio_url_data"] = f"data:{mime};base64,{b64}"
+                st.session_state["now_playing"] = uploaded_name
+                st.session_state["last_uploaded_name"] = uploaded_name
+            st.experimental_rerun()
+        except Exception as e:
+            st.sidebar.error(f"Upload failed: {e}")
 
 # ------------------------
 # Visual settings
 # ------------------------
 st.sidebar.markdown("---")
-st.sidebar.markdown("### Visual settings")
-mode = st.sidebar.selectbox(
-    "Visualizer Mode",
-    ["Ripple", "Synthwave", "Ocean Reverb", "Resonance", "Mesh", "BeatSaber"],
-)
+mode = st.sidebar.selectbox("Visualizer Mode", ["Ripple", "Synthwave", "Ocean Reverb", "Resonance", "Mesh", "BeatSaber"])
 sensitivity = st.sidebar.slider("Beat sensitivity", 0.3, 2.5, 1.0, step=0.1)
 theme = st.sidebar.selectbox("Theme", ["Neon (dark)", "Light", "Blue", "Cyberpunk", "Vaporwave", "Galaxy"])
 particle_count = st.sidebar.slider("Background particle count", 20, 120, 55, step=5)
-
 if mode == "Synthwave":
     intensity = st.sidebar.slider("Synthwave Intensity", 0.5, 3.0, 1.0, step=0.1)
     grid_speed = st.sidebar.slider("Synthwave Grid Speed", 0.1, 2.0, 0.6, step=0.1)
     grid_cols = st.sidebar.slider("Synthwave Grid Columns", 12, 60, 36, step=2)
 
 # ------------------------
-# Helper to write uploaded file to temp
-# ------------------------
-def write_temp_file(uploaded_file):
-    suffix = Path(uploaded_file.name).suffix if hasattr(uploaded_file, "name") else ""
-    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
-    tmp.write(uploaded_file.read())
-    tmp.flush()
-    tmp.close()
-    return tmp.name
-
-# ------------------------
-# Process uploaded audio
-# ------------------------
-if uploaded and not st.session_state.get("audio_url_data", None):
-    try:
-        temp_path = write_temp_file(uploaded)
-        y, sr = librosa.load(temp_path, sr=None, mono=True)
-        file_duration = librosa.get_duration(y=y, sr=sr)
-        tempo, beat_frames = librosa.beat.beat_track(y=y, sr=sr, trim=False)
-        beats = librosa.frames_to_time(beat_frames, sr=sr).tolist()
-
-        with open(temp_path, "rb") as f:
-            data = f.read()
-            b64 = base64.b64encode(data).decode()
-            mime = "audio/mpeg" if Path(temp_path).suffix.lower() != ".wav" else "audio/wav"
-            st.session_state["audio_url_data"] = f"data:{mime};base64,{b64}"
-            st.session_state["now_playing"] = uploaded.name if hasattr(uploaded, "name") else Path(temp_path).name
-
-        st.sidebar.success(f"Detected ~{len(beats)} beats, duration {int(file_duration)}s")
-    except Exception as e:
-        processing_error = str(e)
-        st.sidebar.error(f"Could not analyze audio: {e}")
-
-# ------------------------
-# Main UI - Player + Visualizer
+# Main UI
 # ------------------------
 from effects import ripple, synthwave, ocean_reverb, resonance, mesh, beatsaber
 
 col1, col2 = st.columns([1, 2])
-
 with col1:
     st.header("Player")
     current_audio = st.session_state.get("audio_url_data", None)
-    now_playing_label = st.session_state.get("now_playing", None)
-
-    if now_playing_label:
-        st.markdown(f"**Now Playing:** {now_playing_label}")
-
+    now_playing = st.session_state.get("now_playing", None)
+    if now_playing:
+        st.markdown(f"**Now Playing:** {now_playing}")
     if current_audio:
         try:
             from custom_player import render_custom_player
             render_custom_player(current_audio, logo_b64=logo_b64)
         except Exception as e:
-            st.error(f"Could not load custom player: {e}")
+            st.error(f"Custom player error: {e}")
             st.audio(current_audio)
     else:
-        st.info("Upload or load a song to enable the player.")
+        st.info("Upload, choose demo, or load JioSaavn to play.")
 
     start_clicked = st.button("▶️ Start Visualizer")
     replay_intro = st.button("🔄 Replay Intro")
@@ -285,11 +234,9 @@ with col2:
         elif mode == "BeatSaber":
             html = beatsaber.get_html(audio_for_visual, beats=beats)
             st.components.v1.html(html, height=720, scrolling=False)
-        elif mode == "Custom Player":
-            st.write("🎚 Custom Player is displayed on the left. Use its controls to play, tweak effects, and save presets.")
 
 st.markdown("---")
-st.markdown("🎧 **Tip:** For the best immersive experience, use headphones! Song might take some time to load, be patient.", unsafe_allow_html=True)
+st.markdown("🎧 **Tip:** Use headphones for best experience. Songs may take a moment to load.", unsafe_allow_html=True)
 st.markdown(
     """<div style="text-align:center; margin-top:20px; font-size:14px; color:#ccc; text-shadow:0px 0px 6px rgba(255,255,255,0.3);">
     Created by <b>Nilam Chakraborty</b></div>""",
