@@ -34,7 +34,7 @@ logo_b64 = load_base64("logo.png")
 synthwave_video_path = os.path.join(STATIC_DIR, "synthwave_bg.mp4")
 
 
-# ✅ Intro animation
+# ✅ Intro animation (only inject favicon if available)
 def show_intro():
     favicon_link = f'<link rel="icon" href="data:image/x-icon;base64,{favicon_b64}">' if favicon_b64 else ""
     logo_img = f'<img src="data:image/png;base64,{logo_b64}" class="transparent-logo" width="180">' if logo_b64 else ""
@@ -73,7 +73,7 @@ def show_intro():
 show_intro()
 
 # ------------------------
-# Replace plain title
+# Replace plain title (dynamic)
 # ------------------------
 logo_img_small = f'<img src="data:image/png;base64,{logo_b64}" width="60" height="60">' if logo_b64 else ""
 st.markdown(
@@ -104,6 +104,7 @@ else:
 # ------------------------
 @st.cache_data(ttl=300)
 def saavn_search(query: str, n: int = 10):
+    """Search JioSaavn songs via saavn.dev API."""
     url = f"https://saavn.dev/api/search/songs?query={query}&limit={n}"
     resp = requests.get(url, timeout=10)
     data = resp.json()
@@ -173,10 +174,11 @@ if demo_files:
             data = f.read()
             b64 = base64.b64encode(data).decode()
             mime = "audio/mpeg" if Path(demo_path_selected).suffix.lower() != ".wav" else "audio/wav"
+            # ✅ Fix: Always overwrite state and force rerun so player reloads
             st.session_state["audio_url_data"] = f"data:{mime};base64,{b64}"
             st.session_state["now_playing"] = Path(demo_path_selected).name
         st.sidebar.success(f"Loaded {selected_demo}")
-        st.rerun()
+        st.rerun()  # <-- correct placement
 
 # ------------------------
 # Visual settings
