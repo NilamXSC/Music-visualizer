@@ -89,8 +89,11 @@ def saavn_search(query: str, n: int = 10):
         return []
     return data["data"]["results"]
 
+# ------------------------
+# Audio state
+# ------------------------
 audio_url_data = st.session_state.get("audio_url_data", None)
-beats = []
+beats = st.session_state.get("beats", [])
 
 # ------------------------
 # JioSaavn Integration
@@ -111,9 +114,19 @@ if search_query:
             st.sidebar.write(f"🎵 {title} — {artists}")
             if media_url:
                 if st.sidebar.button("▶ Load", key=f"saavn_{idx}"):
-                    st.session_state["audio_url_data"] = media_url
-                    st.session_state["now_playing"] = f"{title} — {artists}"
-                    st.experimental_rerun()
+                    try:
+                        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
+                        tmp.write(requests.get(media_url).content)
+                        tmp.flush()
+                        y, sr = librosa.load(tmp.name, sr=None, mono=True)
+                        tempo, beat_frames = librosa.beat.beat_track(y=y, sr=sr, trim=False)
+                        beats = librosa.frames_to_time(beat_frames, sr=sr).tolist()
+                        st.session_state["beats"] = beats
+                        st.session_state["audio_url_data"] = media_url
+                        st.session_state["now_playing"] = f"{title} — {artists}"
+                        st.experimental_rerun()
+                    except Exception as e:
+                        st.sidebar.error(f"Failed to process beats: {e}")
     except Exception as e:
         st.sidebar.error(f"JioSaavn error: {e}")
 
@@ -137,6 +150,7 @@ if demo_files:
                 y, sr = librosa.load(demo_path_selected, sr=None, mono=True)
                 tempo, beat_frames = librosa.beat.beat_track(y=y, sr=sr, trim=False)
                 beats = librosa.frames_to_time(beat_frames, sr=sr).tolist()
+                st.session_state["beats"] = beats
                 with open(demo_path_selected, "rb") as f:
                     data = f.read()
                     b64 = base64.b64encode(data).decode()
@@ -156,10 +170,10 @@ if uploaded:
             tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
             tmp.write(uploaded.read())
             tmp.flush()
-            tmp.close()
             y, sr = librosa.load(tmp.name, sr=None, mono=True)
             tempo, beat_frames = librosa.beat.beat_track(y=y, sr=sr, trim=False)
             beats = librosa.frames_to_time(beat_frames, sr=sr).tolist()
+            st.session_state["beats"] = beats
             with open(tmp.name, "rb") as f:
                 data = f.read()
                 b64 = base64.b64encode(data).decode()
@@ -215,6 +229,7 @@ with col2:
         show_intro()
     elif start_clicked and st.session_state.get("audio_url_data", None):
         audio_for_visual = st.session_state["audio_url_data"]
+        beats = st.session_state.get("beats", [])
         if mode == "Ripple":
             html = ripple.render_effect(beats, theme, sensitivity, particle_count, audio_for_visual)
             st.components.v1.html(html, height=680, scrolling=False)
