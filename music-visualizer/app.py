@@ -7,9 +7,6 @@ import os
 from pathlib import Path
 import requests
 
-# ------------------------
-# Page config + Logo / Favicon
-# ------------------------
 st.set_page_config(page_title="SonicPlay - Music Visualizer", layout="wide")
 
 BASE_DIR = os.path.dirname(__file__)
